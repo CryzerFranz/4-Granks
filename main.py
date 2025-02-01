@@ -19,6 +19,9 @@ background_img = pygame.image.load("assets/background.jpg")
 
 # Assets scalling
 background_img = pygame.transform.scale(background_img, (screen_width, screen_height))
+cell_size = 70
+player1_img = pygame.transform.scale(player1_img, (cell_size - 10, cell_size - 10))
+player2_img = pygame.transform.scale(player2_img, (cell_size - 10, cell_size - 10))
 
 # Fonts
 title_font = pygame.font.Font(None, 72)  
@@ -36,14 +39,73 @@ hands = mp_hands.Hands(min_detection_confidence=0.5, min_tracking_confidence=0.5
 mp_draw = mp.solutions.drawing_utils
 
 # Variablen
+board = [[0 for _ in range(7)] for _ in range(6)]  # 6x7 board
 index_tip_pos = None
 game_over = False
 current_player = 1
+
+button_color = (200, 0, 0)
+button_hover_color = (255, 155, 0)
+button_rect = pygame.Rect(screen_width - 150, 20, 120, 50)  # Close button
+restart_button_rect = pygame.Rect(screen_width // 2 - 60, screen_height // 2 + 50, 120, 50)
 
 # Funktionen
 def draw_title(screen, screen_width, title_font):
     title_text = title_font.render("4 Granks", True, (255, 255, 255))
     screen.blit(title_text, (screen_width // 2 - title_text.get_width() // 2, 10))
+    
+def draw_board(screen_width, screen_height, screen, player1_img, player2_img, cell_size, board):
+    from main import screen_width, screen_height  
+    board_color = (30, 144, 255)  # Dodger Blue
+    board_x = int(screen_width // 2 - 3.5 * cell_size)  # Center the board (convert to int)
+    board_y = int(screen_height // 2 - 3 * cell_size)  # Convert to int
+
+    for row in range(6):
+        for col in range(7):
+            cell_x = board_x + col * cell_size
+            cell_y = board_y + row * cell_size
+            pygame.draw.rect(screen, board_color, (cell_x, cell_y, cell_size, cell_size))
+            pygame.draw.rect(screen, (0, 0, 0), (cell_x, cell_y, cell_size, cell_size), 2)
+            pygame.draw.circle(screen, (0, 0, 0), (cell_x + cell_size // 2, cell_y + cell_size // 2), cell_size // 3)
+            if board[row][col] == 1:
+                screen.blit(player1_img, (cell_x + 5, cell_y + 5))
+            elif board[row][col] == 2:
+                screen.blit(player2_img, (cell_x + 5, cell_y + 5))
+                
+def check_winner(board, player):
+    # Check rows, columns, and diagonals for a win
+    for row in range(6):
+        for col in range(7 - 3):
+            if all(board[row][col + i] == player for i in range(4)):
+                return True
+    for row in range(6 - 3):
+        for col in range(7):
+            if all(board[row + i][col] == player for i in range(4)):
+                return True
+    for row in range(6 - 3):
+        for col in range(7 - 3):
+            if all(board[row + i][col + i] == player for i in range(4)):
+                return True
+    for row in range(3, 6):
+        for col in range(7 - 3):
+            if all(board[row - i][col + i] == player for i in range(4)):
+                return True
+    return False
+
+def draw_close_button(screen, button_color, button_hover_color, button_rect, font):
+    mouse_pos = pygame.mouse.get_pos()
+    color = button_hover_color if button_rect.collidepoint(mouse_pos) else button_color
+    pygame.draw.rect(screen, color, button_rect)
+    close_text = font.render("X", True, (255, 255, 255))
+    screen.blit(close_text, (button_rect.x + 10, button_rect.y + 10))
+    
+
+def draw_restart_button(screen, button_color, button_hover_color, button_rect, font):
+    mouse_pos = pygame.mouse.get_pos()
+    color = button_hover_color if button_rect.collidepoint(mouse_pos) else button_color
+    pygame.draw.rect(screen, color, button_rect)
+    restart_text = font.render("Neu", True, (255, 255, 255))
+    screen.blit(restart_text, (button_rect.x + 10, button_rect.y + 10))
 
 #Spiel
 running = True
@@ -52,6 +114,14 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+           if button_rect.collidepoint(event.pos):  # Close button
+               running = False
+           if game_over and restart_button_rect.collidepoint(event.pos):  # Restart button
+               # Reset the game
+               board = [[0 for _ in range(7)] for _ in range(6)]
+               game_over = False
+               current_player = 1
     
     ret, frame = cap.read()
     if not ret:
@@ -111,10 +181,17 @@ while running:
     # Darstellungen
     screen.blit(background_img, (0, 0))
     draw_title(screen, screen_width, title_font)
+    draw_board(screen_width, screen_height, screen, player1_img, player2_img, cell_size, board)
+    
     # Spieler anzeige
     if index_tip_pos:
         screen.blit(player1_img if current_player == 1 else player2_img, index_tip_pos)
-        
+    
+    if game_over:
+        draw_restart_button(screen, button_color, button_hover_color, restart_button_rect, winner_font)
+    
+    draw_close_button(screen, button_color, button_hover_color, button_rect, winner_font)
+    
     pygame.display.flip()
 # freigabe der resourcen beim schließen
 cap.release()
