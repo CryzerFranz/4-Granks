@@ -43,6 +43,7 @@ board = [[0 for _ in range(7)] for _ in range(6)]  # 6x7 board
 index_tip_pos = None
 game_over = False
 current_player = 1
+selected_column = -1
 
 button_color = (200, 0, 0)
 button_hover_color = (255, 155, 0)
@@ -98,7 +99,27 @@ def draw_close_button(screen, button_color, button_hover_color, button_rect, fon
     pygame.draw.rect(screen, color, button_rect)
     close_text = font.render("X", True, (255, 255, 255))
     screen.blit(close_text, (button_rect.x + 10, button_rect.y + 10))
-    
+
+def drop_piece(board, col, player):
+    for row in range(5, -1, -1):
+        if board[row][col] == 0:
+            board[row][col] = player
+            return True
+    return False
+
+def selection_row(screen_width, screen, selected_column):
+    hole_color = (255, 255, 255)  # White
+    for col in range(7):
+        hole_x = int((screen_width // 2 - 7 * 70 // 2) + col * 70)  # Convert to int
+        hole_y = 50
+        if col == selected_column:
+            glow_color = (255, 255, 0)  # Yellow
+            pygame.draw.circle(screen, glow_color, (hole_x + 70 // 2, hole_y + 70 // 2), 70 // 3 + 5)  # Outer glow
+        pygame.draw.circle(screen, hole_color, (hole_x + 70 // 2, hole_y + 70 // 2), 70 // 3)
+
+def display_winner(screen_width, screen, winner_font, current_player):
+    winner_text = winner_font.render(f"Player {3 - current_player} Wins!", True, (252, 15, 192))
+    screen.blit(winner_text, (screen_width // 2 - winner_text.get_width() // 2, 200))
 
 def draw_restart_button(screen, button_color, button_hover_color, button_rect, font):
     mouse_pos = pygame.mouse.get_pos()
@@ -131,6 +152,7 @@ while running:
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     
     results = hands.process(frame_rgb)
+    pointing_column = -1
     hand_open = False
     
     if results.multi_hand_landmarks:
@@ -174,20 +196,38 @@ while running:
             if is_index_straight and are_others_folded and is_thumb_far:
                     # Update zeige finger postion der spitze
                     index_tip_pos = (int((1 - index_tip[0]) * screen_width), int(index_tip[1] * screen_height))
+                    for col in range(7):
+                        hole_x = int((screen_width // 2 - 7 * 70 // 2) + col * 70)  # Convert to int
+                        hole_y = 50
+                        circle_center = (hole_x + 70 // 2, hole_y + 70 // 2)
+                        circle_radius = 70 // 3
 
-    if hand_open and not game_over:
-        current_player = 3 - current_player
+                        if np.linalg.norm(np.array(index_tip_pos) - np.array(circle_center)) < circle_radius:
+                            pointing_column = col
+                            break
+    
+    if pointing_column != -1:
+            selected_column = pointing_column
+             
+    if selected_column != -1 and hand_open and not game_over:
+            if 0 <= selected_column < 7 and drop_piece(board, selected_column, current_player):
+                if check_winner(board, current_player):
+                    game_over = True
+                current_player = 3 - current_player
+                selected_column = -1
         
     # Darstellungen
     screen.blit(background_img, (0, 0))
     draw_title(screen, screen_width, title_font)
     draw_board(screen_width, screen_height, screen, player1_img, player2_img, cell_size, board)
+    selection_row(screen_width, screen, selected_column)
     
     # Spieler anzeige
     if index_tip_pos:
         screen.blit(player1_img if current_player == 1 else player2_img, index_tip_pos)
     
     if game_over:
+        display_winner(screen_width, screen, winner_font, current_player)
         draw_restart_button(screen, button_color, button_hover_color, restart_button_rect, winner_font)
     
     draw_close_button(screen, button_color, button_hover_color, button_rect, winner_font)
@@ -197,4 +237,3 @@ while running:
 cap.release()
 hands.close()
 pygame.quit() 
-    
