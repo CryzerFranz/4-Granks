@@ -51,6 +51,21 @@ button_rect = pygame.Rect(screen_width - 150, 20, 120, 50)  # Close button
 restart_button_rect = pygame.Rect(screen_width // 2 - 60, screen_height // 2 + 50, 120, 50)
 
 # Funktionen
+def animate_piece(screen, column, player_img, board_x, cell_size, board):
+    start_y = 50  # Start pos
+    for row in range(5, -1, -1):
+        if board[row][column] == 0:
+            # y postion vom coin
+            end_y = int((screen_height // 2 - 3 * cell_size) + row * cell_size) 
+            break
+    for y in range(start_y, end_y, 10):  # animation
+        screen.blit(background_img, (0, 0))  # reset 
+        draw_board(screen_width, screen_height, screen, player1_img, player2_img, cell_size, board)
+        # Draw the piece at the current y position
+        screen.blit(player_img, (board_x + column * cell_size + 5, y))
+        pygame.display.flip()
+        pygame.time.delay(30)  # speed
+        
 def draw_title(screen, screen_width, title_font):
     title_text = title_font.render("4 Granks", True, (255, 255, 255))
     screen.blit(title_text, (screen_width // 2 - title_text.get_width() // 2, 10))
@@ -211,6 +226,7 @@ while running:
              
     if selected_column != -1 and hand_open and not game_over:
             if 0 <= selected_column < 7 and drop_piece(board, selected_column, current_player):
+                animate_piece(screen, selected_column, player1_img if current_player == 1 else player2_img, screen_width // 2 - 3.5 * cell_size, cell_size, board)
                 if check_winner(board, current_player):
                     game_over = True
                 current_player = 3 - current_player
